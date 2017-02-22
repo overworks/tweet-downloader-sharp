@@ -24,22 +24,17 @@ using System;
 using System.IO;
 using System.Diagnostics;
 using System.Collections.Generic;
-using System.Text;
+using System.Net;
 using CoreTweet;
 using Newtonsoft.Json;
 
 namespace TweetDownloaderSharp
 {
+    class InvalidArguementException : ArgumentException
+    { }
+
     class Program
     {
-        const string TOKEN_FILE_NAME = "token.json";
-
-        const string CONSUMER_KEY = "<your consumer token>";
-        const string CONSUMER_SECRET = "<your consumer secret>";
-
-        public class InvalidArguementException : ArgumentException
-        { }
-
         enum ArgType
         {
             Query,
@@ -54,22 +49,12 @@ namespace TweetDownloaderSharp
         {
             try
             {
-                var argDic = ParseArgs(args);
-
-                Tokens tokens = GetTokens();
+                Options options = Options.MakeOptions(args);
+                string query = args[args.Length - 1];
                 
-                SearchResult searchResult = tokens.Search.Tweets(argDic[ArgType.Query]);
-                foreach (Status status in searchResult)
-                {
-                    MediaEntity[] medias = status.Entities.Media;
-                    if (medias != null)
-                    {
-                        foreach (MediaEntity media in medias)
-                        {
-                            
-                        }
-                    }
-                }
+                Tokens tokens = Credential.GetTokens();
+                Downloader downloader = new Downloader(tokens);
+                downloader.Download(query, options);
             }
             catch (InvalidArguementException)
             {
@@ -91,94 +76,9 @@ namespace TweetDownloaderSharp
             Console.WriteLine();
             Console.WriteLine("옵션:");
             Console.WriteLine("\t-d, --directory [PATH]          : 저장할 디렉토리");
-            Console.WriteLine("\t-i, --item [COUNT]              : 검색할 트윗 갯수");
             Console.WriteLine("\t-rt, --retweet [NUMBER]         : [NUMBER] 이상 리트윗된 것만 다운로드");
             Console.WriteLine("\t-s, --silence                   : 메시지를 표시하지 않음");
             Console.WriteLine("\t-sn, --screen_name [SCREEN_NAME]: 트위터 유저 [SCREEN_NAME]의 트윗 내에서 검색");
-        }
-
-        /// <summary>인수 파싱</summary>
-        /// <param name="args">커맨드 인수</param>
-        /// <returns>파싱 결과를 Dictionary로 돌려줌</returns>
-        static Dictionary<ArgType, string> ParseArgs(string[] args)
-        {
-            if (args.Length == 0)
-            {
-                throw new InvalidArguementException();
-            }
-
-            var result = new Dictionary<ArgType, string>();
-
-            try
-            {
-                int index = 0;
-                while (index < args.Length - 1)
-                {
-                    switch (args[index])
-                    {
-                        case "-d":
-                        case "--directory":
-                            index++;
-                            result.Add(ArgType.DownloadPath, args[index]);
-                            break;
-
-                        case "-i":
-                        case "--item":
-                            index++;
-                            // 파싱이 안되면 여기서 예외발생.
-                            int.Parse(args[index]);
-                            result.Add(ArgType.ItemCount, args[index]);
-                            break;
-
-                        case "-rt":
-                        case "--retweet":
-                            index++;
-                            // 파싱이 안되면 여기서 예외발생.
-                            int.Parse(args[index]);
-                            result.Add(ArgType.RetweetCount, args[index]);
-                            break;
-
-                        case "-s":
-                        case "--silence":
-                            result.Add(ArgType.Silence, null);
-                            break;
-
-                        case "-sn":
-                        case "--screen_name":
-                            index++;
-                            result.Add(ArgType.ScreenName, args[index]);
-                            break;
-                    }
-
-                    index++;
-                }
-
-                string query = args[index];
-                if (result.ContainsKey(ArgType.ScreenName))
-                {
-                    query = string.Format("@{0} {1}", result[ArgType.ScreenName], query);
-                }
-                result.Add(ArgType.Query, args[index]);
-            }
-            catch (FormatException)
-            {
-                throw new InvalidArguementException();
-            }
-
-            return result;
-        }
-
-        static Tokens GetTokens()
-        {
-            var session = OAuth.Authorize(CONSUMER_KEY, CONSUMER_SECRET);
-
-            Uri authorizeUri = session.AuthorizeUri;
-            Process.Start(authorizeUri.AbsoluteUri);
-            Console.Write("Input PIN: ");
-            string pin = Console.ReadLine();
-            Tokens tokens = OAuth.GetTokens(session, pin);
-
-            return OAuth.GetTokens(session, pin);
         }
     }
 }
